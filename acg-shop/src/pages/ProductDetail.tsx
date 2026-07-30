@@ -62,8 +62,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ onAddToCart }) => 
     const finalTitle = selectedVariant ? `${product.title} - ${selectedVariant.name}` : product.title;
     onAddToCart({
       ...product,
-      id: selectedVariant ? `${product.id}-${selectedVariant.name}` : product.id,
-      title: finalTitle, price: displayPrice, imageUrl: mainImage 
+      id: selectedVariant ? `${product.id}__${selectedVariant.name}` : product.id,
+      productId: product.id,
+      variantName: selectedVariant ? selectedVariant.name : null,
+      title: finalTitle, 
+      price: displayPrice, 
+      imageUrl: mainImage 
     }, quantity);
     alert('已成功加入購物車！');
   };

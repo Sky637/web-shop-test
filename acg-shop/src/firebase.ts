@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // 這些資訊來自你的 Firebase 控制台 (測試開發階段這些金鑰公開在外流是合法的)
 const firebaseConfig = {
@@ -18,8 +19,14 @@ const firebaseConfig = {
 
 // 初始化 Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+export const analytics = getAnalytics(app);
 
 // 匯出 Firestore 資料庫實例，讓其他頁面可以呼叫
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
+
+// 判斷：如果是本地開發環境 (localhost)，就強制連線到電腦上的 5001 Port 後端
+if (window.location.hostname === 'localhost') {
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+}

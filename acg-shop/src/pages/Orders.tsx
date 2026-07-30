@@ -82,11 +82,19 @@ export const Orders: React.FC = () => {
                     <td className="px-6 py-4">
                       {/* 依據狀態顯示不同顏色的標籤 */}
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        order.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        'bg-gray-100 text-gray-700'
+                        order.status === 'awaiting_payment' ? 'bg-red-100 text-red-700' :
+                        order.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 
+                        order.status === 'completed' ? 'bg-green-200 text-green-800' : 
+                        order.status === 'cancelled' ? 'bg-gray-300 text-gray-700' :
+                        order.status === 'preorder_hold' ? 'bg-purple-100 text-purple-700' : 
+                        order.status === 'partially_shipped' ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-800'
                       }`}>
-                        {order.status === 'pending' ? '處理中' : order.status === 'completed' ? '已完成' : order.status}
+                          {order.status === 'awaiting_payment' ? '等待付款' : 
+                          order.status === 'pending' ? '處理中' : 
+                          order.status === 'completed' ? '已完成' : 
+                          order.status === 'cancelled' ? '已取消' : 
+                          order.status === 'preorder_hold' ? '⏳ 預訂留貨' : 
+                          order.status === 'partially_shipped' ? '📦 部分發貨 (預訂品等待中)' : order.status}
                       </span>
                     </td>
                     <td className="px-6 py-4">

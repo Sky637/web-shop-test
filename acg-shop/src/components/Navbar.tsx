@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth } from '../firebase';
 
 interface NavbarProps {
   cartItems: any[];
@@ -40,12 +40,11 @@ const BoardGameMegaMenu = () => {
         <div className="absolute top-full left-0 mt-0 w-[550px] bg-white rounded-b-lg shadow-2xl flex overflow-hidden z-50 text-gray-800 border border-gray-100 cursor-default">
           <div className="w-1/3 py-2 border-r border-gray-100 bg-white">
             {Object.keys(menuData).map((catName) => (
-              // === 修改：將 div 改為 Link，讓大分類也能被點擊 ===
               <Link 
                 key={catName}
                 to={`/category/all?tag=${encodeURIComponent(catName)}`}
                 onMouseEnter={() => setActiveCategory(catName)}
-                onClick={() => setIsOpen(false)} // 點擊後收起選單
+                onClick={() => setIsOpen(false)} 
                 className={`px-4 py-3 flex justify-between items-center text-sm font-bold transition-colors cursor-pointer block ${
                   activeCategory === catName 
                     ? 'text-purple-700 bg-purple-50 border-l-4 border-purple-600' 
@@ -96,8 +95,11 @@ export const Navbar: React.FC<NavbarProps> = ({ cartItems, currentUser, isAdmin 
       <div className="max-w-7xl mx-auto px-4 md:px-10 relative z-50 bg-white">
         <div className="flex justify-between items-center h-16">
           
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-black text-purple-700 tracking-tighter">TEST</span>
+          {/* === 🚀 品牌視覺更新：Logo 與名稱 === */}
+          <Link to="/" className="flex items-center space-x-3">
+            {/* 請確保你的 logo 圖片放在 public 資料夾下，並將檔名改為 logo.png，或是在這裡修改檔名 */}
+            <img src="/logo.png" alt="Alliance Studio" className="h-10 w-10 object-contain" />
+            <span className="text-xl md:text-2xl font-black text-purple-700 tracking-tighter">Alliance Studio</span>
           </Link>
 
           <div className="flex items-center space-x-6 h-full">
@@ -181,7 +183,6 @@ export const Navbar: React.FC<NavbarProps> = ({ cartItems, currentUser, isAdmin 
         </div>
       </div>
       
-      {/* 紫色分類導覽列 */}
       <div className="bg-purple-600 text-white hidden md:block relative z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-10">
           <ul className="flex space-x-8 text-sm font-bold items-center h-12">

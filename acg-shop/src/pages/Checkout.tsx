@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, doc, writeBatch, increment, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebase'; 
 
 interface CheckoutProps {
   cartItems: any[];
@@ -10,8 +11,10 @@ interface CheckoutProps {
   onClearCart: () => void;
 }
 
+// 1. 乖乖把 cartItems 接收進來，不要改名
 export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onClearCart }) => {
   const navigate = useNavigate();
+  // 2. 畫面計算使用 cartItems
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
   const [deliveryMethod, setDeliveryMethod] = useState('shipping');
@@ -41,10 +44,13 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
     fetchUserData();
   }, [currentUser]);
 
-  if (cartItems.length === 0) {
-    navigate('/');
-    return null;
-  }
+  useEffect(() => {
+    if (cartItems.length === 0 && !loading) {
+      navigate('/');
+    }
+  }, [cartItems.length, navigate, loading]);
+
+  if (cartItems.length === 0) return null;
 
   const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = parseInt(e.target.value) || 0;
@@ -62,19 +68,32 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
     try {
       setLoading(true);
       const batch = writeBatch(db);
+
+      // 3. 在這裡把完整的 cartItems 拿來瘦身，產出專屬後端用的 cleanItems
+      const cleanItems = cartItems.map((item: any) => ({
+        id: item.id,
+        productId: item.productId || item.id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+        variantName: item.variantName || null,
+        isPreorder: item.isPreorder === true, // 確保繼承商品的預訂屬性
+        allocatedQuantity: 0                  // 預設配貨數量為 0
+      }));
       
       const newOrderRef = doc(collection(db, "orders"));
       const orderData = {
         orderId: newOrderRef.id,
         userId: currentUser.uid,
         userEmail: currentUser.email,
-        items: cartItems,
+        items: cleanItems, // 寫入資料庫用瘦身版的
         subtotal: subtotal,
         shippingFee: shippingFee,
         pointsUsed: usePoints,
         discountAmount: pointsDiscountAmount,
         totalAmount: finalTotal,
-        status: "pending", 
+        status: "awaiting_payment", 
         deliveryMethod,
         shippingAddress: deliveryMethod === 'shipping' ? address : '門市自取',
         phone,
@@ -82,10 +101,9 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
       };
       batch.set(newOrderRef, orderData);
 
-      // === 🚀 核心修復：將購物車依照「真實商品ID」進行分組 (Grouping) ===
       const productUpdates: { [key: string]: { variantName: string | null, quantity: number }[] } = {};
 
-      for (const item of cartItems) {
+      for (const item of cleanItems) {
         let realProductId = item.id;
         let vName = null;
 
@@ -105,7 +123,6 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
         productUpdates[realProductId].push({ variantName: vName, quantity: item.quantity });
       }
 
-      // === 針對每個真實商品，只發送一次寫入指令，避免覆蓋 ===
       for (const productId of Object.keys(productUpdates)) {
         const productRef = doc(db, "products", productId);
         const pSnap = await getDoc(productRef);
@@ -116,7 +133,6 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
           let normalStockDeduct = 0;
           let hasVariantUpdate = false;
 
-          // 一次處理該商品底下的「所有規格扣除需求」
           for (const updateReq of productUpdates[productId]) {
             if (updateReq.variantName && pData.variants) {
               updatedVariants = updatedVariants.map((v: any) => {
@@ -131,13 +147,12 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
             }
           }
 
-          // 統整完畢後，組裝唯一一次的 Update Payload
           const updatePayload: any = {};
           if (hasVariantUpdate) {
             updatePayload.variants = updatedVariants;
           }
           if (normalStockDeduct > 0) {
-            updatePayload.stockQuantity = increment(-normalStockDeduct); // 一般商品用 increment 保證安全
+            updatePayload.stockQuantity = increment(-normalStockDeduct); 
           }
 
           if (Object.keys(updatePayload).length > 0) {
@@ -145,9 +160,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
           }
         }
       }
-      // ==========================================
 
-      // 扣除會員積分
       if (usePoints > 0) {
         const userRef = doc(db, "users", currentUser.uid);
         batch.update(userRef, { points: increment(-usePoints) });
@@ -162,13 +175,26 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
       }
 
       await batch.commit();
-      onClearCart();
-      alert("🎉 訂單建立成功！");
-      navigate(`/account/orders/${newOrderRef.id}`);
+
+      const createCheckout = httpsCallable(functions, 'createStripeCheckout');
+      
+      const result = await createCheckout({ 
+        cartItems: cleanItems, // 送給 Stripe 也用瘦身版的
+        orderId: newOrderRef.id,
+        shippingFee: shippingFee,
+        discountAmount: pointsDiscountAmount 
+      });
+      
+      const data = result.data as { url: string };
+
+      if (data.url) {
+        onClearCart();
+        window.location.href = data.url;
+      }
 
     } catch (error) {
-      console.error("建立訂單失敗:", error);
-      alert("建立訂單失敗，請稍後再試。");
+      console.error("結帳失敗:", error);
+      alert("結帳發生錯誤，請稍後再試。");
     } finally {
       setLoading(false);
     }

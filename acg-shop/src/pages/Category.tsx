@@ -1,7 +1,7 @@
 // src/pages/Category.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { ProductCard } from '../ProductCard';
+import { ProductCard } from '../components/ProductCard';
 import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
