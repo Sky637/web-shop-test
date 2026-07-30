@@ -62,7 +62,7 @@ export const Login: React.FC = () => {
             {isRegister ? '建立新帳戶' : '歡迎回來'}
           </h2>
           <p className="text-sm text-gray-500 mt-2">
-            {isRegister ? '加入 HOBBYLAND 開始你的收藏預訂之旅' : '登入以查看你的網店訂單與會員積分'}
+            {isRegister ? '加入 Alliance Sutdio 開始你的收藏預訂之旅' : '登入以查看你的網店訂單與會員積分'}
           </p>
         </div>
 
@@ -121,7 +121,7 @@ export const Login: React.FC = () => {
         </form>
 
         <div className="text-center text-sm text-gray-600 border-t pt-4">
-          {isRegister ? '已經有帳戶了？' : '還沒有 HOBBYLAND 帳戶？'}
+          {isRegister ? '已經有帳戶了？' : '還沒有 Alliance Sutdio 帳戶？'}
           <button
             onClick={() => {
               setIsRegister(!isRegister);
