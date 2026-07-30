@@ -1,5 +1,4 @@
 // src/Footer.tsx
-import React from 'react';
 
 const Footer = () => {
   return (

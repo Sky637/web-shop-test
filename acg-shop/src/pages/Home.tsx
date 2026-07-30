@@ -1,6 +1,6 @@
 // src/pages/Home.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, limit, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, limit } from 'firebase/firestore';
 import { db } from '../firebase'; 
 
 import { HeroBanner } from '../components/HeroBanner';
