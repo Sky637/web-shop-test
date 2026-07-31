@@ -1,7 +1,7 @@
 // src/pages/Home.tsx
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, limit } from 'firebase/firestore';
-import { db } from '../firebase'; 
+import { collection, getDocs, query, limit, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase'; // ✅ 1. 新增 auth 引入
 
 import { HeroBanner } from '../components/HeroBanner';
 import { ProductCard } from '../components/ProductCard';
@@ -13,6 +13,30 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ onAddToCart }) => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // ✅ 1. 將 isAdmin 變成狀態，預設為 false
+  const [isAdmin, setIsAdmin] = useState(false);
+  const currentUser = auth.currentUser;
+
+  // ✅ 2. 新增一個 useEffect，當有使用者登入時，去資料庫檢查他的 role
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (currentUser) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          // 如果文件存在，且裡面的 role 是 admin，就把 isAdmin 設為 true
+          if (userSnap.exists() && userSnap.data().role === 'admin') {
+            setIsAdmin(true);
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      }
+    };
+    checkUserRole();
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchLatestProducts = async () => {
@@ -84,13 +108,22 @@ export const Home: React.FC<HomeProps> = ({ onAddToCart }) => {
           </div>
         )}
         
+        {/* ✅ 3. 修改這裡：依照 isAdmin 權限顯示不同畫面 */}
         {!loading && products.length === 0 && (
           <div className="text-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col items-center justify-center">
             <span className="text-6xl mb-4 block">📦</span>
-            <p className="text-gray-500 font-medium text-lg">目前資料庫還沒有上架商品喔！</p>
-            <a href="/admin" className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-full font-bold hover:bg-purple-700 transition">
-              前往後台新增
-            </a>
+            
+            {isAdmin ? (
+              <>
+                <p className="text-gray-500 font-medium text-lg">目前資料庫還沒有上架商品喔！</p>
+                <a href="/admin" className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-full font-bold hover:bg-purple-700 transition">
+                  前往後台新增
+                </a>
+              </>
+            ) : (
+              <p className="text-gray-500 font-medium text-lg">目前商品正在努力上架中，敬請期待！</p>
+            )}
+            
           </div>
         )}
         
