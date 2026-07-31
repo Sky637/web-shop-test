@@ -6,8 +6,7 @@ import { db } from '../firebase';
 
 export const AdminOverview: React.FC = () => {
   const { currentUser } = useOutletContext<any>();
-  
-  // 新增：用來儲存計算結果的狀態
+
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
@@ -20,7 +19,7 @@ export const AdminOverview: React.FC = () => {
         
         // 1. 抓取商品總數
         const productsSnap = await getDocs(collection(db, "products"));
-        setTotalProductsCount(productsSnap.size); // .size 可以直接知道有幾筆資料
+        setTotalProductsCount(productsSnap.size);
 
         // 2. 抓取所有訂單，用來計算營業額與待處理數量
         const ordersSnap = await getDocs(collection(db, "orders"));
@@ -98,7 +97,7 @@ export const AdminOverview: React.FC = () => {
            歡迎回來，{currentUser?.displayName || '管理員'}！
          </h3>
          <p className="text-gray-400 text-sm leading-relaxed">
-           這是 TESTING 的專屬後台管理系統。您可以在左側選單中切換功能：<br/>
+           這是 Alliance Studio 的後台管理系統。您可以在左側選單中切換功能：<br/>
            • 📦 點擊 **商品管理** 來上架、編輯或隱藏商品庫存。<br/>
            • 📋 點擊 **訂單流水** 來追蹤全網客人的購買紀錄並更新發貨狀態。<br/>
            *(上方數據為即時讀取資料庫最新狀態自動結算)*

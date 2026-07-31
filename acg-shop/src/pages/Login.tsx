@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore'; // 新增引入 Firestore 儲存功能
-import { auth, db } from '../firebase'; // 確保有引入 db
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 export const Login: React.FC = () => {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // === 新增：確認密碼與電話狀態 ===
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
   
@@ -21,7 +20,6 @@ export const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     
-    // === 新增：註冊時的防呆檢查 ===
     if (isRegister) {
       if (password !== confirmPassword) {
         setError('兩次輸入的密碼不一致，請重新確認！');

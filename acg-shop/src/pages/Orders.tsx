@@ -18,7 +18,6 @@ export const Orders: React.FC = () => {
       
       try {
         setLoading(true);
-        // 核心邏輯：只抓取 userId 等於目前登入者的訂單
         const q = query(collection(db, "orders"), where("userId", "==", currentUser.uid));
         const querySnapshot = await getDocs(q);
         
@@ -27,7 +26,6 @@ export const Orders: React.FC = () => {
           ...doc.data()
         })) as any[];
         
-        // 在前端用 JavaScript 依時間從新到舊排序 (避免觸發 Firebase 需要建立索引的錯誤)
         fetchedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         
         setOrders(fetchedOrders);
@@ -41,7 +39,6 @@ export const Orders: React.FC = () => {
     fetchOrders();
   }, [currentUser]);
 
-  // 格式化時間的輔助函式
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleString('zh-HK', { 
@@ -70,7 +67,6 @@ export const Orders: React.FC = () => {
               <tr><td colSpan={5} className="text-center py-10 text-gray-500">目前沒有訂單紀錄。</td></tr>
             ) : (
               orders.map(order => {
-                // 計算訂單內總共有幾件商品
                 const totalItems = order.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
                 
                 return (

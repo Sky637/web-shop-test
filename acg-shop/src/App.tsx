@@ -24,7 +24,10 @@ import { AdminProducts } from './pages/AdminProducts';
 import { AdminOrders } from './pages/AdminOrders';
 import { AdminTags } from './pages/AdminTags';
 import { doc, getDoc } from 'firebase/firestore';
-import Footer from './components/Footer'; // === 🚀 確保有引入 Footer 元件 ===
+import Footer from './components/Footer'; 
+import { PreorderNotice } from './pages/PreorderNotice';
+import { ReturnPolicy } from './pages/ReturnPolicy';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 
 function App() {
   const [cartItems, setCartItems] = useState<any[]>(() => {
@@ -163,7 +166,6 @@ function App() {
 
   return (
     <Router>
-      {/* === 🚀 結構更新：加入 flex flex-col 確保 Footer 在最下方 === */}
       <div className="min-h-screen flex flex-col bg-gray-50 relative">
         <Navbar cartItems={cartItems} currentUser={currentUser} isAdmin={isAdmin} />
 
@@ -173,6 +175,11 @@ function App() {
             <Route path="/category/:categoryId" element={<Category onAddToCart={handleAddToCart} />} />
             <Route path="/product/:productId" element={<ProductDetail onAddToCart={handleAddToCart} />} />
             <Route path="/cart" element={<Cart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} />} />
+            
+            <Route path="/preorder-notice" element={<PreorderNotice />} />
+            <Route path="/return-policy" element={<ReturnPolicy />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            
             <Route path="/account" element={<AccountLayout currentUser={currentUser} />}>
               <Route index element={<Account currentUser={currentUser} />} />
               <Route path="orders" element={<Orders />} />
@@ -198,7 +205,6 @@ function App() {
           </Routes>
         </main>
 
-        {/* === 🚀 加入 Footer 元件 === */}
         <Footer />
 
         {toastMessage && (

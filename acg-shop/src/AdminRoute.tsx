@@ -36,6 +36,5 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ currentUser }) => {
     return <div className="min-h-screen flex items-center justify-center font-bold text-purple-600">正在驗證安全權限...</div>;
   }
 
-  // 驗證成功則渲染子路由元件，失敗則踢回首頁
   return isAdmin ? <Outlet /> : <Navigate to="/" replace />;
 };

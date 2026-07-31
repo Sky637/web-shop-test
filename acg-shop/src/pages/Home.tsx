@@ -18,7 +18,7 @@ export const Home: React.FC<HomeProps> = ({ onAddToCart }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const currentUser = auth.currentUser;
 
-  // ✅ 2. 新增一個 useEffect，當有使用者登入時，去資料庫檢查他的 role
+  // ✅ 2. 新增 useEffect，當有使用者登入時，去資料庫檢查他的 role
   useEffect(() => {
     const checkUserRole = async () => {
       if (currentUser) {
@@ -61,7 +61,6 @@ export const Home: React.FC<HomeProps> = ({ onAddToCart }) => {
   }, []);
 
   return (
-    // 加回 pb-20 確保底部與 Footer 之間有適當的呼吸空間
     <div className="w-full bg-gray-50 flex flex-col pb-20">
       
       {/* 1. 頂部主視覺輪播圖 */}

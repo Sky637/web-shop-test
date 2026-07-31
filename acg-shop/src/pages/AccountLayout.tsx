@@ -1,7 +1,6 @@
 // src/pages/AccountLayout.tsx
 import React from 'react';
 import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
-// === 1. 引入 Firebase 登出相關套件 ===
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -12,7 +11,6 @@ interface AccountLayoutProps {
 export const AccountLayout: React.FC<AccountLayoutProps> = ({ currentUser }) => {
   const location = useLocation();
 
-  // 保護路由：如果未登入，直接踢回首頁或登入頁
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
@@ -32,7 +30,6 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ currentUser }) => 
     try {
       await signOut(auth);
       alert('已成功登出！');
-      // 登出後 currentUser 會變成 null，上方的保護路由會自動把使用者踢回 /login
     } catch (error) {
       console.error('登出失敗:', error);
     }

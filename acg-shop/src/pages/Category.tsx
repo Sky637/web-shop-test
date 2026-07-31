@@ -65,17 +65,14 @@ export const Category: React.FC<CategoryProps> = ({ onAddToCart }) => {
             imageUrl: data.images && data.images.length > 0 ? data.images[0] : (data.imageUrl || "https://via.placeholder.com/300")
           };
 
-          // 解壓縮規格
           if (data.variants && data.variants.length > 0) {
             data.variants.forEach((variant: any) => {
               const variantStock = variant.stock !== undefined ? variant.stock : data.stockQuantity;
               productsArray.push({
                 ...baseProduct,
-                // === 🚀 核心修復：使用雙底線 ID，並給予結帳所需資訊 ===
                 id: `${doc.id}__${variant.name}`,
                 productId: doc.id,
                 variantName: variant.name,
-                // ==========================================
                 displayId: `${doc.id}-${variant.name}`,
                 title: `${data.title} - ${variant.name}`,
                 price: variant.price,
@@ -86,10 +83,8 @@ export const Category: React.FC<CategoryProps> = ({ onAddToCart }) => {
           } else {
             productsArray.push({
               ...baseProduct,
-              // === 無規格的商品也統一補上 productId 防呆 ===
               id: doc.id,
               productId: doc.id,
-              // ==========================================
               displayId: doc.id,
               inStock: data.inStock !== false && data.stockQuantity > 0,
               linkUrl: `/product/${doc.id}`

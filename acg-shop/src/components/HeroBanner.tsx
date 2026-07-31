@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-// 定義輪播圖的資料陣列 (你可以隨時在這裡新增或修改活動)
+// 定義輪播圖的資料陣列 (可以隨時在這裡新增或修改活動)
 const slides = [
   {
     id: 1,
-    image: '/godzilla-banner.jpg', // 請確保 public 資料夾有這張圖，或換成別的
+    image: '/godzilla-banner.jpg',
     tag: 'LIMITED EDITION',
     title: '最新模型熱烈預訂中',
     desc: '從深海甦醒的王者、最強人造人、與傳說中的超級賽亞人，為你準備最齊全的收藏。',
@@ -15,7 +15,7 @@ const slides = [
   },
   {
     id: 2,
-    image: '/ptcg_m3box.jpg', // 這是從你之前的截圖看到你有這張圖
+    image: '/ptcg_m3box.jpg',
     tag: 'NEW RELEASE',
     title: '寶可夢 TCG：最新擴充包',
     desc: '全新超級進化機制登場！立刻擴充你的牌組，實體門市現貨同步熱賣中。',
@@ -24,7 +24,7 @@ const slides = [
   },
   {
     id: 3,
-    image: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=1920&auto=format&fit=crop', // 示意圖，可換成你們實體店的照片
+    image: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=1920&auto=format&fit=crop',
     tag: 'ALLIANCE STUDIO',
     title: '線上輕鬆預訂，門市安心取貨',
     desc: '首創全通路無縫體驗！網店下單鎖定庫存，歡迎至觀塘實體門市取貨付尾款。',
@@ -37,22 +37,18 @@ export const HeroBanner: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
-  // 上一張
   const prevSlide = () => {
     setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   };
 
-  // 下一張
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
   };
 
-  // 跳轉到指定投影片
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
   };
 
-  // 自動播放邏輯 (每 5000 毫秒切換一次，若滑鼠懸停則暫停)
   useEffect(() => {
     if (isHovered) return;
     const slideInterval = setInterval(nextSlide, 5000);
@@ -128,7 +124,7 @@ export const HeroBanner: React.FC = () => {
             onClick={() => goToSlide(index)}
             className={`w-3 h-3 md:w-4 md:h-4 rounded-full transition-all duration-300 focus:outline-none ${
               index === currentIndex 
-                ? 'bg-purple-500 w-8 md:w-10' // 啟動狀態的圓點會變長
+                ? 'bg-purple-500 w-8 md:w-10'
                 : 'bg-white/50 hover:bg-white/80'
             }`}
             aria-label={`Go to slide ${index + 1}`}

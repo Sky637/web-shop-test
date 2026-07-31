@@ -11,10 +11,8 @@ interface CheckoutProps {
   onClearCart: () => void;
 }
 
-// 1. 乖乖把 cartItems 接收進來，不要改名
 export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onClearCart }) => {
   const navigate = useNavigate();
-  // 2. 畫面計算使用 cartItems
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
   const [deliveryMethod, setDeliveryMethod] = useState('shipping');
@@ -69,7 +67,6 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
       setLoading(true);
       const batch = writeBatch(db);
 
-      // 3. 在這裡把完整的 cartItems 拿來瘦身，產出專屬後端用的 cleanItems
       const cleanItems = cartItems.map((item: any) => ({
         id: item.id,
         productId: item.productId || item.id,
@@ -78,8 +75,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
         quantity: item.quantity,
         imageUrl: item.imageUrl,
         variantName: item.variantName || null,
-        isPreorder: item.isPreorder === true, // 確保繼承商品的預訂屬性
-        allocatedQuantity: 0                  // 預設配貨數量為 0
+        isPreorder: item.isPreorder === true,
+        allocatedQuantity: 0
       }));
       
       const newOrderRef = doc(collection(db, "orders"));
@@ -87,7 +84,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
         orderId: newOrderRef.id,
         userId: currentUser.uid,
         userEmail: currentUser.email,
-        items: cleanItems, // 寫入資料庫用瘦身版的
+        items: cleanItems,
         subtotal: subtotal,
         shippingFee: shippingFee,
         pointsUsed: usePoints,
@@ -179,7 +176,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cartItems, currentUser, onCl
       const createCheckout = httpsCallable(functions, 'createStripeCheckout');
       
       const result = await createCheckout({ 
-        cartItems: cleanItems, // 送給 Stripe 也用瘦身版的
+        cartItems: cleanItems,
         orderId: newOrderRef.id,
         shippingFee: shippingFee,
         discountAmount: pointsDiscountAmount 

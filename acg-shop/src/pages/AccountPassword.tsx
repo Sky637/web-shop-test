@@ -30,7 +30,6 @@ export const AccountPassword: React.FC = () => {
       }
     } catch (error: any) {
       console.error(error);
-      // Firebase 安全機制：如果使用者太久沒登入，會要求重新登入才能改密碼
       if (error.code === 'auth/requires-recent-login') {
         setMessage({ type: 'error', text: '為了保護帳戶安全，請登出並重新登入後，再進行密碼修改。' });
       } else {

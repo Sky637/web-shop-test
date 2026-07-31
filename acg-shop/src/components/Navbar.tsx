@@ -95,9 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({ cartItems, currentUser, isAdmin 
       <div className="max-w-7xl mx-auto px-4 md:px-10 relative z-50 bg-white">
         <div className="flex justify-between items-center h-16">
           
-          {/* === 🚀 品牌視覺更新：Logo 與名稱 === */}
           <Link to="/" className="flex items-center space-x-3">
-            {/* 請確保你的 logo 圖片放在 public 資料夾下，並將檔名改為 logo.png，或是在這裡修改檔名 */}
             <img src="/logo.png" alt="Alliance Studio" className="h-10 w-10 object-contain" />
             <span className="text-xl md:text-2xl font-black text-purple-700 tracking-tighter">Alliance Studio</span>
           </Link>

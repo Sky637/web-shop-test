@@ -25,7 +25,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) =
         {/* LOGO 區塊 */}
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-lg font-black tracking-widest text-white flex items-center">
-            <span className="text-yellow-400 mr-2">🛡️</span> TESTING
+            <span className="text-yellow-400 mr-2">🛡️</span> Alliance Studio
           </h1>
           <p className="text-xs text-gray-500 mt-1">網店後台管理中心</p>
         </div>

@@ -15,14 +15,12 @@ export const Account: React.FC<AccountProps> = ({ currentUser }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
-  // 當頁面載入，或者 currentUser 改變時，去資料庫抓資料
   useEffect(() => {
     const fetchUserData = async () => {
       if (!currentUser) return;
       
       try {
         setLoading(true);
-        // 指向 users 集合中，ID 為客人 uid 的那份文件
         const userDocRef = doc(db, "users", currentUser.uid);
         const docSnap = await getDoc(userDocRef);
 
@@ -41,7 +39,6 @@ export const Account: React.FC<AccountProps> = ({ currentUser }) => {
     fetchUserData();
   }, [currentUser]);
 
-  // 儲存按鈕的處理邏輯
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -51,13 +48,12 @@ export const Account: React.FC<AccountProps> = ({ currentUser }) => {
       setMessage('');
       const userDocRef = doc(db, "users", currentUser.uid);
       
-      // 使用 setDoc 儲存資料 (如果文件不存在會自動建立，如果存在會覆蓋)
       await setDoc(userDocRef, {
         phone: phone,
         address: address,
-        email: currentUser.email, // 順便把 email 存進資料庫備查
+        email: currentUser.email,
         updatedAt: new Date().toISOString()
-      }, { merge: true }); // merge: true 代表只更新這幾個欄位，不要清空其他欄位（如未來的積分）
+      }, { merge: true });
 
       setMessage('資料已成功更新！');
     } catch (error) {
@@ -68,7 +64,6 @@ export const Account: React.FC<AccountProps> = ({ currentUser }) => {
     }
   };
 
-  // 如果還沒登入，顯示提示
   if (!currentUser) {
     return <div className="text-center py-20 text-gray-500 font-bold">請先登入以查看帳戶資料。</div>;
   }

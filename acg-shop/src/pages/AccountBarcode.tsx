@@ -26,7 +26,7 @@ export const AccountBarcode: React.FC = () => {
             displayValue={false} 
             background="#ffffff"
             lineColor="#000000"
-            margin={0} // 移除條碼預設的留白，讓我們的 padding 來控制
+            margin={0}
           />
         </div>
         

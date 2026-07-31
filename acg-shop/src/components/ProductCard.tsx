@@ -10,7 +10,7 @@ interface ProductProps {
   imageUrl: string;
   isPreorder: boolean;
   inStock: boolean;
-  linkUrl?: string; // 1. 新增可選的 linkUrl 屬性，用來接收帶有規格的跳轉網址
+  linkUrl?: string;
   onAddToCart: () => void;
 }
 

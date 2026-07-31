@@ -18,10 +18,8 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ onAddToCart }) => 
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
   
-  // === 全螢幕檢視狀態 (Lightbox) ===
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   
-  // === 主圖 Hover 放大鏡狀態 ===
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPos, setHoverPos] = useState({ x: 50, y: 50 });
 
@@ -75,13 +73,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ onAddToCart }) => 
   // === 圖片 Hover 放大鏡移動邏輯 ===
   const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-    // 計算游標在圖片上的 X 與 Y 軸百分比
     const x = ((e.clientX - left) / width) * 100;
     const y = ((e.clientY - top) / height) * 100;
     setHoverPos({ x, y });
   };
 
-  // === 全螢幕 Lightbox 左右切換邏輯 ===
   const currentImageIndex = imagesArray.indexOf(mainImage);
   
   const handlePrevImage = (e: React.MouseEvent) => {
