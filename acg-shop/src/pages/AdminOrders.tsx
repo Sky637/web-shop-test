@@ -30,8 +30,83 @@ export const AdminOrders: React.FC = () => {
 
   useEffect(() => { fetchAllSystemOrders(); }, []);
 
+  // 計算經過篩選後的訂單列表 (方便匯出報表與列表顯示使用)
+  const filteredOrders = allOrders.filter(order => {
+    const matchSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        (order.userEmail && order.userEmail.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchStatus = filterStatus === 'all' || order.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
+
   // ==========================================
-  // 1. 呼叫後端執行「按時間先進先出」自動配貨
+  // 🚀 新增：匯出 CSV 報表功能
+  // ==========================================
+  const handleExportCSV = () => {
+    if (!filteredOrders || filteredOrders.length === 0) {
+      alert("目前沒有訂單資料可供匯出！");
+      return;
+    }
+
+    // 定義 CSV 標題
+    const headers = [
+      "系統流水號", 
+      "建立日期", 
+      "買家帳號 (Email)", 
+      "訂單狀態", 
+      "總金額 (HK$)", 
+      "物流運單號碼",
+      "購買商品明細"
+    ];
+
+    // 整理每一筆訂單的資料
+    const csvRows = filteredOrders.map(order => {
+      const date = order.createdAt 
+        ? new Date(order.createdAt).toLocaleString('zh-HK') 
+        : "未知日期";
+      
+      const itemsDetail = order.items 
+        ? order.items.map((item: any) => `${item.title} (x${item.quantity})`).join(" | ")
+        : "無商品紀錄";
+
+      // 轉換狀態為中文顯示
+      const statusMap: Record<string, string> = {
+        'awaiting_payment': '等待付款',
+        'preorder_hold': '預訂留貨中',
+        'pending': '處理中',
+        'partially_shipped': '部分發貨',
+        'partially_refunded': '部分退款/結案',
+        '已發貨': '已發貨',
+        'completed': '已完成',
+        'cancelled': '已取消'
+      };
+
+      const rowData = [
+        order.orderId || order.id,
+        date,
+        order.userEmail || "未提供",
+        statusMap[order.status] || order.status || "未知",
+        order.totalAmount || 0,
+        order.trackingNumber || "無",
+        itemsDetail
+      ];
+
+      return rowData.map(field => `"${String(field).replace(/"/g, '""')}"`).join(",");
+    });
+
+    // 組合並建立下載連結 (加入 \uFEFF 避免中文亂碼)
+    const csvContent = [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Alliance_Orders_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // ==========================================
+  // 呼叫後端執行「按時間先進先出」自動配貨
   // ==========================================
   const handleAutoAllocate = async () => {
     if (!inputProductId || inputArrivedQty <= 0) return alert("請輸入正確的商品ID與到貨數量");
@@ -52,7 +127,63 @@ export const AdminOrders: React.FC = () => {
   };
 
   // ==========================================
-  // 2. 手動任意修改某個客人的配貨數量
+  // WhatsApp 一鍵到貨通知 (含訂單專屬連結)
+  // ==========================================
+  const handleWhatsAppNotify = async (order: any) => {
+    let targetPhone = order.phone;
+
+    // 1. 如果訂單本身沒有電話，且這筆訂單有綁定會員 userId，就去 users 資料庫找
+    if (!targetPhone && order.userId) {
+      try {
+        const userRef = doc(db, "users", order.userId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().phone) {
+          targetPhone = userSnap.data().phone;
+        }
+      } catch (error) {
+        console.error("抓取會員電話失敗:", error);
+      }
+    }
+
+    // 2. 再次檢查是否真的沒有電話
+    if (!targetPhone) {
+      alert("⚠️ 這筆訂單與該會員的個人資料中，都沒有留下聯絡電話，無法自動跳轉 WhatsApp！");
+      return;
+    }
+
+    // 3. 格式化電話號碼 (去除空白，若是香港 8 碼則自動加上 852)
+    let formattedPhone = targetPhone.replace(/\s+/g, '');
+    if (formattedPhone.length === 8) {
+      formattedPhone = '852' + formattedPhone;
+    }
+
+    // 4. 抓取「已經配貨 (allocatedQuantity > 0)」的預訂商品名單
+    const arrivedItems = order.items
+      ?.filter((item: any) => item.isPreorder && (item.allocatedQuantity || 0) > 0)
+      .map((item: any) => `- ${item.title} (x${item.allocatedQuantity})`)
+      .join('\n');
+
+    // 5. 自動產生訂單專屬連結 (抓取目前網站網域 + 訂單路由)
+    const baseUrl = window.location.origin;
+    const orderLink = `${baseUrl}/account/orders/${order.id}`; 
+
+    // 6. 根據是否有預訂品，組裝不同的預設訊息 (加入訂單連結)
+    let defaultText = '';
+    if (arrivedItems) {
+      defaultText = `您好！您在 Alliance Studio 預訂的商品已經到貨囉！\n\n訂單編號：#${order.orderId || order.id}\n到貨商品：\n${arrivedItems}\n\n點擊查看訂單詳情與安排取貨：\n${orderLink}\n\n請您抽空前往門市取貨，或回覆此訊息安排寄送，謝謝！`;
+    } else {
+      defaultText = `您好！您在 Alliance Studio 的訂單 (#${order.orderId || order.id}) 狀態有更新。\n\n點擊查看訂單詳情：\n${orderLink}\n\n請回覆此訊息與我們聯絡，謝謝！`;
+    }
+
+    // 7. 將文字編碼並打開 WhatsApp 連結
+    const encodedText = encodeURIComponent(defaultText);
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedText}`;
+    
+    window.open(whatsappUrl, '_blank');
+  };
+
+  // ==========================================
+  // 手動任意修改某個客人的配貨數量
   // ==========================================
   const handleManualAdjustQty = async (order: any, itemIndex: number) => {
     const item = order.items[itemIndex];
@@ -86,7 +217,7 @@ export const AdminOrders: React.FC = () => {
   };
 
   // ==========================================
-  // 3. 一般狀態更新 (發貨與完成給積分)
+  // 一般狀態更新 (發貨與完成給積分)
   // ==========================================
   const handleUpdateStatus = async (order: any) => {
     let nextStatus = '';
@@ -124,7 +255,6 @@ export const AdminOrders: React.FC = () => {
       } else {
         const updateData: any = { status: nextStatus };
         if (trackingNumber) {
-          // 如果原本已經有部分發貨的運單號，就把新的附加在後面
           updateData.trackingNumber = order.trackingNumber 
             ? `${order.trackingNumber} , [預訂品] ${trackingNumber}` 
             : trackingNumber;
@@ -142,7 +272,7 @@ export const AdminOrders: React.FC = () => {
   };
 
   // ==========================================
-  // 🚀 新增：部分發貨 (先寄出現貨)
+  // 部分發貨 (先寄出現貨)
   // ==========================================
   const handlePartialShip = async (order: any) => {
     const input = window.prompt(`請輸入【現貨包裹】的物流運單號碼\n(這會將訂單標記為「部分發貨」，預訂品仍會繼續排隊等貨)：`);
@@ -164,7 +294,7 @@ export const AdminOrders: React.FC = () => {
   };
 
   // ==========================================
-  // 4. 手動取消訂單 (軟刪除退庫存/積分)
+  // 手動取消訂單 (軟刪除退庫存/積分)
   // ==========================================
   const handleCancelOrder = async (order: any) => {
     if (!window.confirm(`確定要【取消】訂單 #${order.orderId || order.id} 嗎？\n系統會自動將扣除的庫存與積分歸還給買家。`)) return;
@@ -226,7 +356,7 @@ export const AdminOrders: React.FC = () => {
   };
 
   // ==========================================
-  // 🚀 新增：紀錄退款與取消剩餘商品 (針對部分發貨的訂單)
+  // 紀錄退款與取消剩餘商品 (針對部分發貨的訂單)
   // ==========================================
   const handleRecordRefund = async (order: any) => {
     const refundInput = window.prompt(`請輸入欲退還給客人 ${order.userEmail} 的【退款金額 (HK$)】：\n(請先至 Stripe 後台完成實際退款，再來此處紀錄)`);
@@ -240,19 +370,16 @@ export const AdminOrders: React.FC = () => {
       const batch = writeBatch(db);
       const orderRef = doc(db, "orders", order.id);
 
-      // 1. 標記訂單狀態與退款金額
       batch.update(orderRef, { 
-        status: "partially_refunded", // 變成「部分退款/結案」狀態
-        refundedAmount: increment(refundAmount), // 記錄退款金額
+        status: "partially_refunded",
+        refundedAmount: increment(refundAmount),
         refundNote: `管理員紀錄退款 HK$${refundAmount}`
       });
 
-      // 2. 找出哪些預訂品還沒配貨/沒發貨，要把庫存加回去
       if (order.items && order.items.length > 0) {
         for (const item of order.items) {
-          // 如果是預訂品，且還沒配滿 (或者你打算直接取消他剩下的量)
           if (item.isPreorder && item.allocatedQuantity < item.quantity) {
-            const unfulfilledQty = item.quantity - (item.allocatedQuantity || 0); // 算出沒發出去的數量
+            const unfulfilledQty = item.quantity - (item.allocatedQuantity || 0);
             
             const productRef = doc(db, "products", item.productId);
             const pSnap = await getDoc(productRef);
@@ -285,7 +412,7 @@ export const AdminOrders: React.FC = () => {
   };
 
   // ==========================================
-  // 5. 永久刪除 (硬刪除)
+  // 永久刪除 (硬刪除)
   // ==========================================
   const handleDeleteOrder = async (orderId: string) => {
     const isConfirmed = window.confirm(
@@ -306,13 +433,6 @@ export const AdminOrders: React.FC = () => {
     }
   };
 
-  const filteredOrders = allOrders.filter(order => {
-    const matchSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        (order.userEmail && order.userEmail.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchStatus = filterStatus === 'all' || order.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
-
   return (
     <div className="bg-gray-950 border border-gray-800 rounded-xl p-6 space-y-6">
       
@@ -326,9 +446,24 @@ export const AdminOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= 搜尋與篩選 ================= */}
+      {/* ================= 搜尋與篩選 (加入匯出按鈕) ================= */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-800 pb-4 gap-4">
-        <h2 className="text-md font-bold text-white">📋 全網訂單流水</h2>
+        
+        {/* 左側：標題與匯出按鈕 */}
+        <div className="flex items-center gap-4">
+          <h2 className="text-md font-bold text-white">📋 全網訂單流水</h2>
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            匯出 CSV
+          </button>
+        </div>
+
+        {/* 右側：搜尋與過濾器 */}
         <div className="flex space-x-2 w-full md:w-auto">
           <input type="text" placeholder="搜尋訂單 ID 或 Email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-sm rounded px-3 py-1.5 flex-1 md:w-64 focus:outline-none" />
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-sm rounded px-3 py-1.5">
@@ -415,6 +550,16 @@ export const AdminOrders: React.FC = () => {
                     }
                   </span>
 
+                  <button 
+                    onClick={() => handleWhatsAppNotify(order)} 
+                    className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                    </svg>
+                    WhatsApp
+                  </button>
+
                   {order.status === 'preorder_hold' && (
                     <button onClick={() => handlePartialShip(order)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors">
                       🚚 先發現貨 (部分發貨)
@@ -427,7 +572,6 @@ export const AdminOrders: React.FC = () => {
                     </button>
                   )}
 
-                  {/* 🚀 新增：紀錄退款按鈕 (只在部分發貨且發現預訂品叫不到貨時顯示) */}
                   {order.status === 'partially_shipped' && (
                     <button onClick={() => handleRecordRefund(order)} className="bg-orange-700 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors">
                       💰 取消剩餘預訂並退款

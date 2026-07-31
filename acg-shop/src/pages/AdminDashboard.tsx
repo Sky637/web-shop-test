@@ -15,6 +15,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) =
     { name: '📦 商品管理', path: '/admin/products' },
     { name: '📋 訂單流水', path: '/admin/orders' },
     { name: '🏷️ 標籤管理', path: '/admin/tags' },
+    { name: '👥 會員管理', path: '/admin/users'},
   ];
 
   return (

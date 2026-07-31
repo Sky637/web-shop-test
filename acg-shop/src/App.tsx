@@ -28,6 +28,8 @@ import Footer from './components/Footer';
 import { PreorderNotice } from './pages/PreorderNotice';
 import { ReturnPolicy } from './pages/ReturnPolicy';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { AdminUsers } from './pages/AdminUsers';
+import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 
 function App() {
   const [cartItems, setCartItems] = useState<any[]>(() => {
@@ -200,6 +202,7 @@ function App() {
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="tags" element={<AdminTags />} />
+                <Route path="users" element={<AdminUsers />} />
               </Route>
             </Route>
           </Routes>
@@ -207,6 +210,8 @@ function App() {
 
         <Footer />
 
+        <FloatingWhatsApp />
+        
         {toastMessage && (
           <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 px-6 py-3 rounded shadow-2xl z-[9999] font-bold flex items-center animate-bounce border border-yellow-500">
             <span className="mr-3 font-black text-xl">!</span>
