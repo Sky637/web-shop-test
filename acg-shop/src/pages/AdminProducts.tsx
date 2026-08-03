@@ -1,7 +1,8 @@
 // src/pages/AdminProducts.tsx
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // 匯入 Storage 相關 API
+import { db, storage } from '../firebase'; // 引入 storage
 
 export const AdminProducts: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -13,7 +14,7 @@ export const AdminProducts: React.FC = () => {
   const [price, setPrice] = useState(0);
   const [deposit, setDeposit] = useState(0);
   const [janCode, setJanCode] = useState(0);
-  const [stockQuantity, setStockQuantity] = useState(10); // 無規格時的總庫存
+  const [stockQuantity, setStockQuantity] = useState(10);
   const [brand, setBrand] = useState('');
   const [series, setSeries] = useState('');
   const [scale, setScale] = useState('');
@@ -31,6 +32,9 @@ export const AdminProducts: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [imagesInput, setImagesInput] = useState('');
   const [variantsInput, setVariantsInput] = useState('');
+  
+  // 控制上傳中狀態
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
@@ -55,8 +59,51 @@ export const AdminProducts: React.FC = () => {
 
   useEffect(() => { 
     fetchAllProducts(); 
-    fetchTags(); // 在 useEffect 裡呼叫它
+    fetchTags();
   }, []);
+
+  // ==========================================
+  // 圖片上傳到 Firebase Storage
+  // ==========================================
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImage(true);
+    try {
+      const newUrls: string[] = [];
+      
+      // 支援一次選取多張圖片上傳
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // 建立唯一檔案名稱 (避免檔名重複互相覆蓋)
+        const uniqueFileName = `${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, `products/${uniqueFileName}`);
+        
+        // 1. 將實體檔案上傳至 Firebase Storage
+        const snapshot = await uploadBytes(storageRef, file);
+        // 2. 取得公開可讀取的專屬網址
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        newUrls.push(downloadURL);
+      }
+
+      // 將取得的新網址，附加到原本的圖片陣列字串後面
+      setImagesInput(prev => {
+        const currentImages = prev.trim();
+        return currentImages ? `${currentImages}, ${newUrls.join(', ')}` : newUrls.join(', ');
+      });
+      
+      alert("✅ 圖片上傳成功！");
+    } catch (error) {
+      console.error("上傳失敗:", error);
+      alert("❌ 圖片上傳失敗。請確認你的 Firebase Storage 規則是否允許寫入。");
+    } finally {
+      setUploadingImage(false);
+      // 清空 input 讓下次可以選同樣檔名的照片
+      e.target.value = ''; 
+    }
+  };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,15 +111,16 @@ export const AdminProducts: React.FC = () => {
     try {
       const imagesArray = imagesInput.split(',').map(i => i.trim()).filter(Boolean);
       
-      // 解析 名稱:價格:庫存
-      const variantsArray = variantsInput.split(',').map(v => {
+      // 解析 名稱:價格:庫存:子SKU
+      const variantsArray = variantsInput.split(',').map((v, index) => {
         const parts = v.split(':');
         const name = parts[0]?.trim();
         const variantPrice = Number(parts[1]?.trim());
         const variantStock = parts.length > 2 ? Number(parts[2]?.trim()) : Number(stockQuantity);
+        const variantSku = parts.length > 3 && parts[3]?.trim() !== '' ? parts[3]?.trim() : `${sku}-V${index + 1}`;
         
         return name && !isNaN(variantPrice) 
-          ? { name, price: variantPrice, stock: variantStock } 
+          ? { name, price: variantPrice, stock: variantStock, sku: variantSku } 
           : null;
       }).filter(Boolean);
 
@@ -89,7 +137,7 @@ export const AdminProducts: React.FC = () => {
         isVisible: true
       }, { merge: true });
 
-      alert("商品儲存成功！");
+      alert("🎉 商品儲存成功！");
       setSku(''); setTitle(''); setJanCode(0); setPrice(0); setDeposit(0); setStockQuantity(0);
       setBrand(''); setSeries(''); setScale(''); setMaterial(''); setSize(''); 
       setMainCategory(''); setSubCategory(''); setSubSubCategory('');
@@ -208,15 +256,38 @@ export const AdminProducts: React.FC = () => {
           </div>
           
           <div>
-            <label className="block text-purple-400 mb-1 font-bold">商品多種規格 (名稱:價格:庫存)</label>
-            <p className="text-xs text-gray-500 mb-1">格式：單包:20:50, 原盒(30包):600:0 (逗號分開)</p>
-            <input type="text" value={variantsInput} onChange={e => setVariantsInput(e.target.value)} placeholder="例如: 單包:20:50, 原盒:600:0" className="w-full bg-gray-900 border border-purple-900/50 rounded px-3 py-2 text-white text-xs" />
+            <label className="block text-purple-400 mb-1 font-bold">商品多種規格 (名稱:價格:庫存:專屬SKU)</label>
+            <p className="text-xs text-gray-500 mb-1">格式：單包:20:50:PTC-01-1P, 原盒:600:0:PTC-01-BOX (逗號分開)</p>
+            <input type="text" value={variantsInput} onChange={e => setVariantsInput(e.target.value)} placeholder="例如: 單包:20:50:SKU-01, 原盒:600:0:SKU-02" className="w-full bg-gray-900 border border-purple-900/50 rounded px-3 py-2 text-white text-xs" />
           </div>
 
-          <div>
-             <label className="block text-gray-400 mb-1 font-bold">圖片路徑陣列 (逗號分開)</label>
-             <input type="text" value={imagesInput} onChange={e => setImagesInput(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-xs" />
+          {/* 專屬圖片上傳區塊 */}
+          <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg space-y-2">
+             <label className="block text-gray-400 font-bold">圖片路徑陣列 (可手動輸入，或直接上傳)</label>
+             <p className="text-xs text-gray-500">上傳會自動存入雲端，並將網址加入下方輸入框中 (支援多選)。</p>
+             
+             <div className="flex gap-2">
+               <input 
+                 type="text" 
+                 value={imagesInput} 
+                 onChange={e => setImagesInput(e.target.value)} 
+                 className="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500" 
+                 placeholder="https://..."
+               />
+               <label className={`flex-shrink-0 flex items-center justify-center px-4 py-2 rounded text-xs font-bold cursor-pointer transition-colors ${uploadingImage ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}>
+                 {uploadingImage ? '上傳中...' : '⬆️ 選擇圖片上傳'}
+                 <input 
+                   type="file" 
+                   multiple 
+                   accept="image/*" 
+                   onChange={handleImageUpload} 
+                   className="hidden" 
+                   disabled={uploadingImage} 
+                 />
+               </label>
+             </div>
           </div>
+
           <button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded mt-4">確認發佈至雲端</button>
         </form>
       </div>
@@ -228,7 +299,7 @@ export const AdminProducts: React.FC = () => {
             {products.map(p => (
               <div key={p.id} className={`border p-4 rounded-lg flex justify-between items-center text-sm ${p.isVisible !== false ? 'bg-gray-900 border-gray-800' : 'bg-gray-950 border-red-900/50 opacity-60'}`}>
                 <div className="flex items-center space-x-4">
-                  <img src={p.images?.[0] || p.imageUrl} className="w-14 h-14 object-contain bg-white rounded border border-gray-700" alt="" />
+                  <img src={p.images?.[0] || p.imageUrl || "https://via.placeholder.com/150"} className="w-14 h-14 object-contain bg-white rounded border border-gray-700" alt="" />
                   <div>
                     <h3 className="text-white font-bold text-base">
                       {p.isVisible === false && <span className="text-red-500 mr-2">[已隱藏]</span>}
@@ -253,9 +324,7 @@ export const AdminProducts: React.FC = () => {
                     setMainCategory(p.mainCategory || ''); setSubCategory(p.subCategory || ''); setSubSubCategory(p.subSubCategory || '');
                     setStockQuantity(p.stockQuantity || 0); setIsPreorder(!!p.isPreorder); setInStock(!!p.inStock);
                     setSelectedTags(p.tags || []); setImagesInput(p.images?.join(', ') || '');
-                    
-                    // 編輯時還原 名稱:價格:庫存 字串
-                    setVariantsInput(p.variants?.map((v:any) => `${v.name}:${v.price}:${v.stock ?? p.stockQuantity}`).join(', ') || '');
+                    setVariantsInput(p.variants?.map((v:any) => `${v.name}:${v.price}:${v.stock ?? p.stockQuantity}:${v.sku || ''}`).join(', ') || '');
                   }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-bold rounded">修改</button>
                   
                   <button onClick={() => handleToggleVisibility(p.id, p.isVisible)} className={`${p.isVisible !== false ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white px-4 py-2 text-xs font-bold rounded transition-colors`}>
