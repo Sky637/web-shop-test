@@ -68,7 +68,10 @@ function App() {
         setCurrentUser(user);
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
+          
+          const allowedRoles = ['superadmin', 'manager', 'staff'];
+          
+          if (userDoc.exists() && allowedRoles.includes(userDoc.data().role)) {
             setIsAdmin(true);
           } else {
             setIsAdmin(false);
