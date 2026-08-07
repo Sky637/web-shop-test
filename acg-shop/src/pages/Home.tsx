@@ -26,13 +26,20 @@ export const Home: React.FC<HomeProps> = ({ onAddToCart }) => {
           const userRef = doc(db, 'users', currentUser.uid);
           const userSnap = await getDoc(userRef);
           
-          // 如果文件存在，且裡面的 role 是 admin，就把 isAdmin 設為 true
-          if (userSnap.exists() && userSnap.data().role === 'admin') {
+          const allowedRoles = ['superadmin', 'manager', 'staff'];
+          
+          // 檢查文件是否存在，並且該會員的 role 是否包含在允許的清單內
+          if (userSnap.exists() && allowedRoles.includes(userSnap.data().role)) {
             setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
+          setIsAdmin(false);
         }
+      } else {
+        setIsAdmin(false);
       }
     };
     checkUserRole();
