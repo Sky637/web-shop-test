@@ -9,7 +9,6 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// ⚠️ 請務必換回你真實的 Stripe 測試私鑰！
 const stripe = require("stripe")("process.env.STRIPE_SECRET_KEY".trim());
 
 // =======================================================
@@ -226,5 +225,79 @@ exports.allocatePreorderStock = onCall(async (request) => {
   } catch (error) {
     console.error("配貨演算法出錯:", error);
     throw new HttpsError("internal", error.message);
+  }
+});
+
+// =======================================================
+// 4. 排程任務：每個月底清理 90 天前的舊日誌並備份至 Storage
+// =======================================================
+exports.archiveAndDeleteOldLogs = onSchedule({
+  schedule: "0 0 1 * *",          // Cron 語法：每月 1 號 00:00 執行
+  timeZone: "Asia/Hong_Kong"      // 設定為香港時區
+}, async (event) => {
+  try {
+    const bucket = admin.storage().bucket(); // 獲取預設的 Storage Bucket
+
+    // 1. 計算 90 天前的時間戳記
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    console.log(`開始執行清理任務：尋找 ${ninetyDaysAgo.toISOString()} 之前的日誌...`);
+
+    // 2. 查詢舊日誌
+    const logsRef = db.collection('admin_logs');
+    const snapshot = await logsRef.where('createdAt', '<=', ninetyDaysAgo).get();
+
+    if (snapshot.empty) {
+      console.log('✅ 沒有超過 90 天的舊日誌需要清理。');
+      return;
+    }
+
+    // 3. 準備備份資料 (轉為 JSON 陣列)
+    const deletedLogs = [];
+    snapshot.forEach(doc => {
+      deletedLogs.push({ id: doc.id, ...doc.data() });
+    });
+
+    // 4. 建立備份檔案並上傳到 Firebase Storage 的 archived_logs 資料夾
+    const fileData = JSON.stringify(deletedLogs, null, 2);
+    const timestampStr = new Date().toISOString().split('T')[0]; // 例如: 2026-08-01
+    const fileName = `archived_logs/admin_logs_backup_${timestampStr}.json`;
+    const file = bucket.file(fileName);
+
+    await file.save(fileData, {
+      metadata: { contentType: 'application/json' }
+    });
+    
+    console.log(`📦 已成功將 ${snapshot.size} 筆日誌備份至 Storage: ${fileName}`);
+
+    // 5. 分批刪除 Firestore 上的紀錄 (Firestore batch 限制每次 500 筆)
+    const batches = [];
+    let currentBatch = db.batch();
+    let currentCount = 0;
+
+    snapshot.docs.forEach((doc) => {
+      currentBatch.delete(doc.ref);
+      currentCount++;
+      
+      // 滿 500 筆就推入一個 Commit 任務，並開啟新的 Batch
+      if (currentCount === 500) {
+        batches.push(currentBatch.commit());
+        currentBatch = db.batch();
+        currentCount = 0;
+      }
+    });
+    
+    // 送出剩餘的未滿 500 筆的 batch
+    if (currentCount > 0) {
+      batches.push(currentBatch.commit());
+    }
+
+    // 等待所有刪除任務完成
+    await Promise.all(batches);
+    console.log('🗑️ 舊日誌已成功從 Firestore 徹底刪除！');
+
+  } catch (error) {
+    console.error('❌ 清理或備份日誌時發生錯誤:', error);
   }
 });

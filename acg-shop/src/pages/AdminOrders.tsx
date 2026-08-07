@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, doc, writeBatch, increment, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase';
+import { logAdminAction } from '../utils/logger';
 
 export const AdminOrders: React.FC = () => {
   const [allOrders, setAllOrders] = useState<any[]>([]);
@@ -39,7 +40,7 @@ export const AdminOrders: React.FC = () => {
   });
 
   // ==========================================
-  // 🚀 新增：匯出 CSV 報表功能
+  // 匯出 CSV 報表功能
   // ==========================================
   const handleExportCSV = () => {
     if (!filteredOrders || filteredOrders.length === 0) {
@@ -118,6 +119,7 @@ export const AdminOrders: React.FC = () => {
         arrivedQuantity: inputArrivedQty
       });
       alert(result.data.message);
+      await logAdminAction('自動配貨', '訂單系統', inputProductId, `執行到貨數量: ${inputArrivedQty}`);
       fetchAllSystemOrders();
     } catch (e: any) {
       alert("配貨失敗: " + e.message);
@@ -208,6 +210,7 @@ export const AdminOrders: React.FC = () => {
       });
 
       alert("⚙️ 手動調整配貨量成功！");
+      await logAdminAction('手動配貨', '訂單', order.orderId || order.id, `將 ${item.title} 配貨量改為 ${newAllocated}`);
       fetchAllSystemOrders();
     } catch (e) {
       alert("調整失敗");
@@ -264,6 +267,7 @@ export const AdminOrders: React.FC = () => {
 
       await batch.commit();
       alert(`✅ 訂單狀態已更新為【${nextStatus === 'completed' ? '已完成' : nextStatus}】！`);
+      await logAdminAction('狀態更新', '訂單', order.orderId || order.id, `變更為 ${nextStatus}`);
       fetchAllSystemOrders(); 
     } catch (e) { 
       console.error(e);
@@ -285,6 +289,7 @@ export const AdminOrders: React.FC = () => {
         trackingNumber: input.trim() ? `[現貨] ${input.trim()}` : "[現貨] 已發出"
       });
       alert("📦 已標記為部分發貨！");
+      await logAdminAction('狀態更新', '訂單', order.orderId || order.id, `標記為部分發貨，運單: ${input.trim()}`);
       fetchAllSystemOrders();
     } catch (e) {
       alert("更新失敗");
@@ -346,6 +351,7 @@ export const AdminOrders: React.FC = () => {
 
       await batch.commit();
       alert(`✅ 訂單已取消，庫存與積分已歸還！`);
+      await logAdminAction('取消', '訂單', order.orderId || order.id, `手動取消並退還庫存/積分`);
       fetchAllSystemOrders();
     } catch (error) {
       console.error("取消訂單失敗:", error);
@@ -402,6 +408,7 @@ export const AdminOrders: React.FC = () => {
 
       await batch.commit();
       alert(`✅ 已成功紀錄退款 HK$${refundAmount}，並將未發貨的商品庫存歸還！`);
+      await logAdminAction('退款', '訂單', order.orderId || order.id, `紀錄退款 HK$${refundAmount}`);
       fetchAllSystemOrders();
     } catch (error) {
       console.error("紀錄退款失敗:", error);
@@ -424,6 +431,7 @@ export const AdminOrders: React.FC = () => {
       setLoading(true);
       await deleteDoc(doc(db, "orders", orderId));
       alert("🗑️ 訂單已永久刪除！");
+      await logAdminAction('永久刪除', '訂單', orderId);
       fetchAllSystemOrders();
     } catch (error) {
       console.error("刪除訂單失敗:", error);

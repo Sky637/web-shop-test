@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // 匯入 Storage 相關 API
 import { db, storage } from '../firebase'; // 引入 storage
+import { logAdminAction } from '../utils/logger';
 
 export const AdminProducts: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -126,6 +127,44 @@ export const AdminProducts: React.FC = () => {
 
       const productRef = doc(db, "products", sku);
 
+      // ==========================================
+      // 狀態比對 (決定是否寫入 Log)
+      // ==========================================
+      const oldSnap = await getDoc(productRef);
+      let actionType = '新增';
+      let detailsStr = '上架了全新商品';
+      let shouldLog = true;
+
+      if (oldSnap.exists()) {
+        const oldData = oldSnap.data();
+        actionType = '修改';
+        const changes: string[] = [];
+
+        // 1. 檢查價格是否變動
+        if (oldData.price !== Number(price)) {
+          changes.push(`價格: ${oldData.price} -> ${price}`);
+        }
+        
+        // 2. 檢查總庫存是否被手動覆寫
+        if (oldData.stockQuantity !== Number(stockQuantity)) {
+          changes.push(`庫存: ${oldData.stockQuantity} -> ${stockQuantity}`);
+        }
+        
+        // 3. 檢查是否從預訂轉為現貨
+        if (oldData.isPreorder !== isPreorder) {
+          changes.push(`預訂狀態改為: ${isPreorder}`);
+        }
+
+        if (changes.length > 0) {
+          detailsStr = `更新關鍵數值：${changes.join(', ')}`;
+        } else {
+          shouldLog = false;
+        }
+      }
+
+      // ==========================================
+      // 執行實際的資料庫覆寫
+      // ==========================================
       await setDoc(productRef, {
         sku, title, price: Number(price), deposit: Number(deposit),
         janCode, brand, series, scale, material, size,
@@ -137,18 +176,26 @@ export const AdminProducts: React.FC = () => {
         isVisible: true
       }, { merge: true });
 
+      if (shouldLog) {
+        await logAdminAction(actionType, '商品', sku, detailsStr);
+      }
+
       alert("🎉 商品儲存成功！");
       setSku(''); setTitle(''); setJanCode(0); setPrice(0); setDeposit(0); setStockQuantity(0);
       setBrand(''); setSeries(''); setScale(''); setMaterial(''); setSize(''); 
       setMainCategory(''); setSubCategory(''); setSubSubCategory('');
       setSelectedTags([]); setImagesInput(''); setVariantsInput('');
       fetchAllProducts();
-    } catch (err) { alert("儲存失敗"); }
+    } catch (err) { 
+      console.error(err);
+      alert("儲存失敗"); 
+    }
   };
 
   const handleToggleVisibility = async (id: string, currentVisible: boolean = true) => {
     if (!window.confirm(`確定要將此商品${currentVisible ? '隱藏 (下架)' : '重新顯示 (上架)'}嗎？`)) return;
     await updateDoc(doc(db, "products", id), { isVisible: !currentVisible });
+    await logAdminAction(currentVisible ? '下架' : '重新上架', '商品', id);
     fetchAllProducts();
   };
 

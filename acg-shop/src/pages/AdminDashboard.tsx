@@ -1,6 +1,8 @@
 // src/pages/AdminDashboard.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface AdminDashboardProps {
   currentUser: any;
@@ -8,6 +10,20 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) => {
   const location = useLocation();
+  const [userRole, setUserRole] = useState<string>('');
+
+  // 進入後台時，抓取登入者的實權限
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (currentUser?.uid) {
+        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+        if (userSnap.exists()) {
+          setUserRole(userSnap.data().role);
+        }
+      }
+    };
+    fetchUserRole();
+  }, [currentUser]);
 
   // 定義左側選單
   const menuItems = [
@@ -16,6 +32,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) =
     { name: '📋 訂單流水', path: '/admin/orders' },
     { name: '🏷️ 標籤管理', path: '/admin/tags' },
     { name: '👥 會員管理', path: '/admin/users'},
+    { name: '📝 操作紀錄', path: '/admin/logs', requiredRole: 'superadmin' },
   ];
 
   return (
@@ -29,12 +46,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) =
             <span className="text-yellow-400 mr-2">🛡️</span> Alliance Studio
           </h1>
           <p className="text-xs text-gray-500 mt-1">網店後台管理中心</p>
+          {/* 顯示目前身分 */}
+          {userRole && (
+            <span className="inline-block mt-2 px-2 py-0.5 bg-purple-900/50 text-purple-400 text-[10px] font-bold rounded border border-purple-800/50">
+              身分: {userRole}
+            </span>
+          )}
         </div>
         
         {/* 導覽選單 */}
         <nav className="p-4 space-y-2 flex-1">
           {menuItems.map(item => {
-            // 判斷目前網址是否作用中 (精準比對 /admin，或是包含 /admin/products 等子路徑)
+            if (item.requiredRole && item.requiredRole !== userRole) {
+              return null;
+            }
+
             const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
             
             return (
@@ -61,7 +87,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser }) =
         </div>
       </aside>
 
-      {/* 右側內容區塊 (Outlet 會自動替換成總覽、商品或訂單) */}
+      {/* 右側內容區塊 */}
       <main className="flex-1 p-6 md:p-10 overflow-y-auto">
         <Outlet context={{ currentUser }} />
       </main>

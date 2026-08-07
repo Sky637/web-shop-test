@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { logAdminAction } from '../utils/logger';
 
 export const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -51,9 +52,10 @@ export const AdminUsers: React.FC = () => {
     try {
       setLoading(true);
       const userRef = doc(db, "users", user.id);
-      await updateDoc(userRef, {
-        points: newPoints
-      });
+      await updateDoc(userRef, { points: newPoints });
+
+      await logAdminAction('修改積分', '會員', user.email, `從 ${currentPoints} 更改為 ${newPoints}`);
+
       alert(`✅ 已成功將該會員積分更新為 ${newPoints}！`);
       fetchAllUsers(); // 重新抓取資料以更新畫面
     } catch (error) {
@@ -65,23 +67,19 @@ export const AdminUsers: React.FC = () => {
   };
 
   // ==========================================
-  // 3. 權限管理 (升級/降級管理員)
+  // 3. 多階層權限管理
   // ==========================================
-  const handleToggleRole = async (user: any) => {
-    const isCurrentlyAdmin = user.role === 'admin';
-    const confirmMessage = isCurrentlyAdmin 
-      ? `確定要移除 ${user.email} 的管理員權限嗎？\n(移除後他將變回一般會員)`
-      : `⚠️ 確定要將 ${user.email} 升級為【管理員】嗎？\n(升級後他將能進入這個後台系統！)`;
-
-    if (!window.confirm(confirmMessage)) return;
+  const handleChangeRole = async (user: any, newRole: string) => {
+    if (!window.confirm(`確定要將 ${user.email} 的權限更改為【${newRole}】嗎？`)) return;
 
     try {
       setLoading(true);
       const userRef = doc(db, "users", user.id);
-      await updateDoc(userRef, {
-        role: isCurrentlyAdmin ? 'user' : 'admin'
-      });
-      alert(isCurrentlyAdmin ? "已移除管理員權限。" : "✅ 已成功升級為管理員！");
+      await updateDoc(userRef, { role: newRole });
+      
+      await logAdminAction('修改權限', '會員', user.email, `權限變更為: ${newRole}`);
+      
+      alert("✅ 權限更新成功！");
       fetchAllUsers();
     } catch (error) {
       console.error("更新權限失敗:", error);
@@ -184,24 +182,21 @@ export const AdminUsers: React.FC = () => {
 
                     {/* 5. 權限與操作 */}
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        {user.role === 'admin' ? (
-                          <span className="bg-purple-900/40 text-purple-400 border border-purple-800 px-2 py-1 rounded text-xs font-bold">
-                            管理員
-                          </span>
-                        ) : (
-                          <span className="bg-gray-800 text-gray-400 px-2 py-1 rounded text-xs">
-                            一般會員
-                          </span>
-                        )}
-                        
-                        <button 
-                          onClick={() => handleToggleRole(user)}
-                          className="text-[10px] text-gray-500 hover:text-white underline ml-2"
-                        >
-                          {user.role === 'admin' ? '降級' : '設為管理員'}
-                        </button>
-                      </div>
+                      <select
+                        value={user.role || 'user'}
+                        onChange={(e) => handleChangeRole(user, e.target.value)}
+                        className={`text-xs font-bold rounded px-2 py-1.5 border focus:outline-none transition-colors ${
+                          user.role === 'superadmin' ? 'bg-red-900/40 text-red-400 border-red-800' :
+                          user.role === 'manager' ? 'bg-purple-900/40 text-purple-400 border-purple-800' :
+                          user.role === 'staff' ? 'bg-blue-900/40 text-blue-400 border-blue-800' :
+                          'bg-gray-800 text-gray-400 border-gray-700'
+                        }`}
+                      >
+                        <option value="user" className="bg-gray-900 text-gray-300">一般會員</option>
+                        <option value="staff" className="bg-gray-900 text-gray-300">店員 (Staff)</option>
+                        <option value="manager" className="bg-gray-900 text-gray-300">店長 (Manager)</option>
+                        <option value="superadmin" className="bg-gray-900 text-gray-300">最高管理員</option>
+                      </select>
                     </td>
 
                   </tr>

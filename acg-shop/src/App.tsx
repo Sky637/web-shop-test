@@ -30,6 +30,7 @@ import { ReturnPolicy } from './pages/ReturnPolicy';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { AdminUsers } from './pages/AdminUsers';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
+import { AdminLogs } from './pages/AdminLogs';
 
 function App() {
   const [cartItems, setCartItems] = useState<any[]>(() => {
@@ -203,6 +204,7 @@ function App() {
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="tags" element={<AdminTags />} />
                 <Route path="users" element={<AdminUsers />} />
+                <Route path="logs" element={<AdminLogs />} />
               </Route>
             </Route>
           </Routes>
